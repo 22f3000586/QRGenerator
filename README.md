@@ -1,4 +1,4 @@
-# QR Generator Web App (with History, Colors & Logo)
+## QR Generator Web App (with History, Colors & Logo)
 
 A modern QR Code Generator web application built using **Next.js + Supabase**.  
 Users can generate QR codes with **custom colors**, add a **logo in the center**, download the QR as PNG, and view their **last 10 generated QRs in history**.
