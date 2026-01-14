@@ -1,36 +1,35 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# 🔳 QR Generator Web App (with History, Colors & Logo)
 
-## Getting Started
+A modern QR Code Generator web application built using **Next.js + Supabase**.  
+Users can generate QR codes with **custom colors**, add a **logo in the center**, download the QR as PNG, and view their **last 10 generated QRs in history**.
 
-First, run the development server:
+✅ Works permanently (data stored in Supabase)  
+✅ Each device has its own history (no login needed)  
+✅ Deployed-ready for Vercel
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+---
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## ✨ Features
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+-  Generate QR code from **text / URL**
+-  Choose **QR foreground & background colors**
+-  Upload a **logo** (placed in center of QR)
+-  Download QR as **PNG**
+-  **History**: shows last 10 generated QRs
+-  Device-wise history using unique `device_id` stored in browser
+-  QR images stored in **Supabase Storage**
+-  History saved in **Supabase Postgres**
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## 🛠 Tech Stack
 
-To learn more about Next.js, take a look at the following resources:
+- **Frontend**: Next.js 16 (App Router), React, TailwindCSS
+- **Backend**: Next.js API Routes (Serverless)
+- **Database**: Supabase Postgres
+- **Storage**: Supabase Storage Bucket (`qr-images`)
+- **QR Generation**: `qrcode` (Node package)
+- **Logo Processing**: `sharp`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

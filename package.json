@@ -8,9 +8,12 @@
     "start": "next start"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.90.1",
     "next": "16.1.1",
+    "qrcode": "^1.5.4",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
