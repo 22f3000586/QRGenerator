@@ -418,7 +418,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => setSelectedHistoryItem(null)}
-                className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 transition font-black"
+                className="w-10 h-10 rounded-full hover:bg-slate-200 transition font-black"
                 title="Close"
               >
                 ✕
@@ -435,7 +435,7 @@ export default function Home() {
 
             <div className="mt-5">
               <label className="text-xs font-bold text-slate-400 uppercase">
-                Encoded Data
+               Data
               </label>
               <p className="mt-1 font-semibold text-slate-700 break-words">
                 {selectedHistoryItem.data}
