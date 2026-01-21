@@ -7,7 +7,7 @@ export default function Home() {
   const [qrUrl, setQrUrl] = useState("");
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [lastGeneratedData, setLastGeneratedData] = useState(""); // ✅ ADD
+  const [lastGeneratedData, setLastGeneratedData] = useState("");
 
   const [fgColor, setFgColor] = useState("#000000");
   const [bgColor, setBgColor] = useState("#ffffff");
@@ -18,6 +18,9 @@ export default function Home() {
 
   const [activeTab, setActiveTab] = useState("Color");
   const [downloadOpen, setDownloadOpen] = useState(false);
+
+  // ✅ NEW: inline error message
+  const [formError, setFormError] = useState("");
 
   const getDeviceId = () => {
     if (typeof window === "undefined") return null;
@@ -50,10 +53,14 @@ export default function Home() {
   }, []);
 
   const generateQR = async () => {
-    if (!text.trim()) return;
+    if (!text.trim()) {
+      setFormError("Please enter a link or text.");
+      return;
+    }
 
     setLoading(true);
     setQrUrl("");
+    setFormError("");
 
     try {
       const device_id = getDeviceId();
@@ -72,21 +79,21 @@ export default function Home() {
         body: formData,
       });
 
-      if (!res.ok) throw new Error(`Generate failed: ${res.status}`);
+      const out = await res.json().catch(() => null);
 
-      const out = await res.json();
-      if (out.error) {
-        alert(out.error);
+      // ✅ show backend error inline instead of alert
+      if (!res.ok || out?.error) {
+        setFormError(out?.error || `Generate failed (${res.status})`);
         return;
       }
 
       setQrUrl(out.image_url);
-      setLastGeneratedData(text.trim()); // ✅ store last QR data
+      setLastGeneratedData(text.trim());
       setText("");
       fetchHistory();
     } catch (err) {
       console.error(err);
-      alert("QR generation failed. Please try again.");
+      setFormError("QR generation failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -96,9 +103,11 @@ export default function Home() {
     try {
       const payloadData = (customData ?? text).trim();
       if (!payloadData) {
-        alert("No data found to download.");
+        setFormError("No data found to download.");
         return;
       }
+
+      setFormError("");
 
       const formData = new FormData();
       formData.append("data", payloadData);
@@ -117,7 +126,8 @@ export default function Home() {
 
       if (!res.ok) {
         const out = await res.json().catch(() => null);
-        throw new Error(out?.error || "Download failed");
+        setFormError(out?.error || "Download failed");
+        return;
       }
 
       const blob = await res.blob();
@@ -133,7 +143,7 @@ export default function Home() {
       window.URL.revokeObjectURL(url);
     } catch (e) {
       console.error(e);
-      alert(e.message || "Download failed");
+      setFormError(e.message || "Download failed");
     }
   };
 
@@ -153,11 +163,21 @@ export default function Home() {
               </label>
               <input
                 value={text}
-                onChange={(e) => setText(e.target.value)}
+                onChange={(e) => {
+                  setText(e.target.value);
+                  setFormError("");
+                }}
                 placeholder="https://yourlink.com"
                 style={{ caretColor: "#6d55a2" }}
                 className="w-full rounded-2xl border-none bg-white px-6 py-4 text-slate-700 shadow-inner-sm ring-1 ring-slate-200 focus:ring-2 focus:ring-[#6d55a2]/30 transition-all outline-none"
               />
+
+              {/* ✅ Inline error (under input) */}
+              {formError && (
+                <p className="mt-3 text-sm font-bold text-red-600">
+                  {formError}
+                </p>
+              )}
             </div>
 
             <div className="mt-3 border-t border-slate-100 pt-2">
@@ -165,7 +185,10 @@ export default function Home() {
                 {["Logo", "Color"].map((tab) => (
                   <button
                     key={tab}
-                    onClick={() => setActiveTab(tab)}
+                    onClick={() => {
+                      setActiveTab(tab);
+                      setFormError("");
+                    }}
                     className={`px-6 py-2 rounded-xl transition-all font-bold text-sm ${
                       activeTab === tab
                         ? "bg-white text-[#6d55a2] shadow-sm"
@@ -186,6 +209,7 @@ export default function Home() {
                         onClick={() => {
                           setLogo(null);
                           setSelectedLogoSrc(null);
+                          setFormError("");
                         }}
                         className={`flex-shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center text-lg bg-white hover:bg-slate-50 transition
                           ${
@@ -209,6 +233,8 @@ export default function Home() {
                           key={src}
                           type="button"
                           onClick={async () => {
+                            setFormError("");
+
                             const res = await fetch(src);
                             const blob = await res.blob();
 
@@ -252,6 +278,7 @@ export default function Home() {
                           const f = e.target.files?.[0] || null;
                           setLogo(f);
                           setSelectedLogoSrc(null);
+                          setFormError("");
                         }}
                         className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-[#f1eff7] file:text-[#6d55a2] hover:file:bg-[#e9e5f2] transition-all"
                       />
@@ -269,7 +296,10 @@ export default function Home() {
                         <input
                           type="color"
                           value={fgColor}
-                          onChange={(e) => setFgColor(e.target.value)}
+                          onChange={(e) => {
+                            setFgColor(e.target.value);
+                            setFormError("");
+                          }}
                           className="w-10 h-10 rounded-lg overflow-hidden border-none cursor-pointer"
                         />
                         <span className="text-sm font-mono text-slate-500 uppercase">
@@ -286,7 +316,10 @@ export default function Home() {
                         <input
                           type="color"
                           value={bgColor}
-                          onChange={(e) => setBgColor(e.target.value)}
+                          onChange={(e) => {
+                            setBgColor(e.target.value);
+                            setFormError("");
+                          }}
                           className="w-10 h-10 rounded-lg overflow-hidden border-none cursor-pointer"
                         />
                         <span className="text-sm font-mono text-slate-500 uppercase">
@@ -308,6 +341,7 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Recent */}
             {history.length > 0 && (
               <div className="mt-8">
                 <h3 className="font-bold text-slate-700 mb-4 ml-1">Recent</h3>
@@ -377,7 +411,7 @@ export default function Home() {
                         type="button"
                         onClick={() => {
                           setDownloadOpen(false);
-                          downloadQR(opt.ext, text.trim() || lastGeneratedData); // ✅ FIX
+                          downloadQR(opt.ext, text.trim() || lastGeneratedData);
                         }}
                         className="w-full text-left px-6 py-4 font-bold text-slate-700 hover:bg-[#f1eff7] hover:text-[#6d55a2] transition border-b border-slate-50 last:border-none"
                       >

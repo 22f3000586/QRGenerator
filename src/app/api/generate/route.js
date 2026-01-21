@@ -86,13 +86,12 @@ export async function POST(req) {
       return Response.json(
         {
           error:
-            "Selected QR color and background have low contrast. Choose darker QR color or lighter background.",
+            "Adjust colors for better visibility!",
         },
         { status: 400 }
       );
     }
 
-    // ✅ IMPORTANT FOR LOGO QR:
     let qrBuffer = await QRCode.toBuffer(data, {
       type: "png",
       width: 350,
