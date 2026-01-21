@@ -2,16 +2,29 @@ import { supabase } from "@/lib/supabaseClient";
 import QRCode from "qrcode";
 import sharp from "sharp";
 
+function isValidHexColor(c) {
+  if (typeof c !== "string") return false;
+  const s = c.trim();
+  return /^#([0-9a-fA-F]{6})$/.test(s);
+}
+
+function hexToRgb(hex) {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return { r, g, b };
+}
+
 export async function POST(req) {
   try {
-    // ✅ Read multipart form-data
     const formData = await req.formData();
 
     const data = (formData.get("data") || "").trim();
     const device_id = (formData.get("device_id") || "").trim();
 
-    const fgColor = (formData.get("fgColor") || "#000000").trim();
-    const bgColor = (formData.get("bgColor") || "#ffffff").trim();
+    let fgColor = (formData.get("fgColor") || "#000000").trim();
+    let bgColor = (formData.get("bgColor") || "#ffffff").trim();
 
     const logoFile = formData.get("logo"); // can be null
 
@@ -23,7 +36,11 @@ export async function POST(req) {
       return Response.json({ error: "Data is required" }, { status: 400 });
     }
 
-    // ✅ generate QR with colors
+    // ✅ validate colors
+    if (!isValidHexColor(fgColor)) fgColor = "#000000";
+    if (!isValidHexColor(bgColor)) bgColor = "#ffffff";
+
+    // Generate QR (png)
     let qrBuffer = await QRCode.toBuffer(data, {
       type: "png",
       width: 300,
@@ -34,68 +51,80 @@ export async function POST(req) {
       },
     });
 
-    // ✅ overlay logo in center if uploaded
+    // ✅ If logo uploaded, validate it's an image
     if (logoFile && typeof logoFile.arrayBuffer === "function") {
+      const mime = logoFile.type || "";
+      if (!mime.startsWith("image/")) {
+        return Response.json(
+          { error: "Logo must be an image file." },
+          { status: 400 }
+        );
+      }
+
       const logoArrayBuffer = await logoFile.arrayBuffer();
       const logoBuffer = Buffer.from(logoArrayBuffer);
 
-      // Resize logo (safe size for scannability)
       const resizedLogo = await sharp(logoBuffer)
         .resize(70, 70, { fit: "contain" })
         .png()
         .toBuffer();
 
-      // Optional: Add white background behind logo
+      // ✅ logo background should match qr bg color
+      const { r, g, b } = hexToRgb(bgColor);
+
       const logoWithBg = await sharp({
         create: {
           width: 86,
           height: 86,
           channels: 4,
-          background: { r: 255, g: 255, b: 255, alpha: 1 },
+          background: { r, g, b, alpha: 1 },
         },
       })
         .composite([{ input: resizedLogo, gravity: "center" }])
         .png()
         .toBuffer();
 
-      // Overlay at center
+      // Overlay logo at center
       qrBuffer = await sharp(qrBuffer)
         .composite([{ input: logoWithBg, gravity: "center" }])
         .png()
         .toBuffer();
     }
 
-    // ✅ upload final QR PNG to Supabase Storage
+    const bucket = "qr-images";
     const fileName = `qr_${Date.now()}_${device_id}.png`;
 
     const { error: uploadError } = await supabase.storage
-      .from("qr-images")
+      .from(bucket)
       .upload(fileName, qrBuffer, {
         contentType: "image/png",
         upsert: false,
+        cacheControl: "3600",
       });
 
     if (uploadError) {
       return Response.json({ error: uploadError.message }, { status: 500 });
     }
 
-    // ✅ public URL
     const { data: publicData } = supabase.storage
-      .from("qr-images")
+      .from(bucket)
       .getPublicUrl(fileName);
 
     const image_url = publicData.publicUrl;
 
-    // ✅ insert history into DB
     const { error: dbError } = await supabase.from("qr_history").insert([
-      { data, image_url, device_id },
+      {
+        data,
+        image_url,
+        device_id,
+      },
     ]);
 
     if (dbError) {
       return Response.json({ error: dbError.message }, { status: 500 });
     }
 
-    // ✅ keep only last 10 rows PER DEVICE
+    // Keep only latest 10 entries for this device_id
     const { data: allRows, error: rowsError } = await supabase
       .from("qr_history")
       .select("id")
@@ -123,8 +152,14 @@ export async function POST(req) {
       success: true,
       image_url,
       data,
+
+      bucket,
+      file_name: fileName,
     });
   } catch (err) {
-    return Response.json({ error: err.message }, { status: 500 });
+    return Response.json(
+      { error: err?.message || "Unknown server error" },
+      { status: 500 }
+    );
   }
 }
