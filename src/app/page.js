@@ -160,9 +160,7 @@ export default function Home() {
               />
             </div>
 
-            <div className="mt-3 border-t border-slate-100 pt-8">
-              <h2 className="font-bold text-slate-800">Design</h2>
-
+            <div className="mt-3 border-t border-slate-100 pt-2">
               <div className="mt-5 flex gap-2 p-1.5 bg-slate-100/50 rounded-2xl w-fit">
                 {["Logo", "Color"].map((tab) => (
                   <button
