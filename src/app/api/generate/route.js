@@ -52,44 +52,45 @@ export async function POST(req) {
     });
 
     // ✅ If logo uploaded, validate it's an image
-    if (logoFile && typeof logoFile.arrayBuffer === "function") {
-      const mime = logoFile.type || "";
-      if (!mime.startsWith("image/")) {
-        return Response.json(
-          { error: "Logo must be an image file." },
-          { status: 400 }
-        );
-      }
+if (logoFile && typeof logoFile.arrayBuffer === "function") {
+  const mime = logoFile.type || "";
+  if (!mime.startsWith("image/")) {
+    return Response.json(
+      { error: "Logo must be an image file." },
+      { status: 400 }
+    );
+  }
 
-      const logoArrayBuffer = await logoFile.arrayBuffer();
-      const logoBuffer = Buffer.from(logoArrayBuffer);
+  const logoArrayBuffer = await logoFile.arrayBuffer();
+  const logoBuffer = Buffer.from(logoArrayBuffer);
 
-      const resizedLogo = await sharp(logoBuffer)
-        .resize(70, 70, { fit: "contain" })
-        .png()
-        .toBuffer();
+  // ✅ smaller logo improves scan success a LOT
+  const resizedLogo = await sharp(logoBuffer)
+    .resize(50, 50, { fit: "contain" })
+    .png()
+    .toBuffer();
 
-      // ✅ logo background should match qr bg color
-      const { r, g, b } = hexToRgb(bgColor);
+  // ✅ logo background uses QR bg color so it blends
+  const { r, g, b } = hexToRgb(bgColor);
 
-      const logoWithBg = await sharp({
-        create: {
-          width: 86,
-          height: 86,
-          channels: 4,
-          background: { r, g, b, alpha: 1 },
-        },
-      })
-        .composite([{ input: resizedLogo, gravity: "center" }])
-        .png()
-        .toBuffer();
+  const logoWithBg = await sharp({
+    create: {
+      width: 70,
+      height: 70,
+      channels: 4,
+      background: { r, g, b, alpha: 1 },
+    },
+  })
+    .composite([{ input: resizedLogo, gravity: "center" }])
+    .png()
+    .toBuffer();
 
-      // Overlay logo at center
-      qrBuffer = await sharp(qrBuffer)
-        .composite([{ input: logoWithBg, gravity: "center" }])
-        .png()
-        .toBuffer();
-    }
+  qrBuffer = await sharp(qrBuffer)
+    .composite([{ input: logoWithBg, gravity: "center" }])
+    .png()
+    .toBuffer();
+}
+
 
     const bucket = "qr-images";
     const fileName = `qr_${Date.now()}_${device_id}.png`;
