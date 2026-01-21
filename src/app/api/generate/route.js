@@ -16,20 +16,29 @@ function hexToRgb(hex) {
   return { r, g, b };
 }
 
+// ✅ luminance + distance checks for contrast
+function luminance({ r, g, b }) {
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function colorDistance(c1, c2) {
+  const dr = c1.r - c2.r;
+  const dg = c1.g - c2.g;
+  const db = c1.b - c2.b;
+  return Math.sqrt(dr * dr + dg * dg + db * db);
+}
+
 // ✅ Fix: if user enters "google.com", scanning opens google search.
 // We convert it to "https://google.com"
 function normalizeQrData(input) {
   const value = (input || "").trim();
 
-  // already has scheme
   if (/^https?:\/\//i.test(value)) return value;
 
-  // looks like a domain => force https
   if (/^[a-z0-9.-]+\.[a-z]{2,}([\/?#].*)?$/i.test(value)) {
     return `https://${value}`;
   }
 
-  // keep text as-is
   return value;
 }
 
@@ -59,8 +68,31 @@ export async function POST(req) {
     if (!isValidHexColor(fgColor)) fgColor = "#000000";
     if (!isValidHexColor(bgColor)) bgColor = "#ffffff";
 
+    // ✅ Reject low contrast combos
+    const fgRgb = hexToRgb(fgColor);
+    const bgRgb = hexToRgb(bgColor);
+
+    const fgLum = luminance(fgRgb);
+    const bgLum = luminance(bgRgb);
+
+    const lumDiff = Math.abs(fgLum - bgLum);
+    const dist = colorDistance(fgRgb, bgRgb);
+
+    if (
+      fgColor.toLowerCase() === bgColor.toLowerCase() ||
+      lumDiff < 90 ||
+      dist < 120
+    ) {
+      return Response.json(
+        {
+          error:
+            "Selected QR color and background have low contrast. Choose darker QR color or lighter background.",
+        },
+        { status: 400 }
+      );
+    }
+
     // ✅ IMPORTANT FOR LOGO QR:
-    // errorCorrectionLevel H + bigger width + bigger margin
     let qrBuffer = await QRCode.toBuffer(data, {
       type: "png",
       width: 350,
@@ -85,7 +117,6 @@ export async function POST(req) {
       const logoArrayBuffer = await logoFile.arrayBuffer();
       const logoBuffer = Buffer.from(logoArrayBuffer);
 
-      // ✅ smaller logo improves scan success a LOT
       const resizedLogo = await sharp(logoBuffer)
         .resize(50, 50, { fit: "contain" })
         .png()
@@ -105,7 +136,6 @@ export async function POST(req) {
         .png()
         .toBuffer();
 
-      // Overlay logo at center
       qrBuffer = await sharp(qrBuffer)
         .composite([{ input: logoWithBg, gravity: "center" }])
         .png()
