@@ -7,6 +7,7 @@ export default function Home() {
   const [qrUrl, setQrUrl] = useState("");
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [lastGeneratedData, setLastGeneratedData] = useState(""); // ✅ ADD
 
   const [fgColor, setFgColor] = useState("#000000");
   const [bgColor, setBgColor] = useState("#ffffff");
@@ -80,6 +81,7 @@ export default function Home() {
       }
 
       setQrUrl(out.image_url);
+      setLastGeneratedData(text.trim()); // ✅ store last QR data
       setText("");
       fetchHistory();
     } catch (err) {
@@ -90,7 +92,6 @@ export default function Home() {
     }
   };
 
-  // ✅ Proper download function (PNG / SVG / PDF)
   const downloadQR = async (ext, customData) => {
     try {
       const payloadData = (customData ?? text).trim();
@@ -105,7 +106,6 @@ export default function Home() {
       formData.append("fgColor", fgColor);
       formData.append("bgColor", bgColor);
 
-      // ⚠️ SVG can't include logo cleanly; PNG/PDF will include logo
       if (logo && ext !== "svg") {
         formData.append("logo", logo);
       }
@@ -180,9 +180,7 @@ export default function Home() {
               <div className="mt-5 rounded-3xl border border-white bg-white/50 p-6 shadow-sm">
                 {activeTab === "Logo" && (
                   <>
-                    {/* Predefined Logos Row */}
                     <div className="flex gap-3 overflow-x-auto pb-4">
-                      {/* Clear selection */}
                       <button
                         type="button"
                         onClick={() => {
@@ -310,7 +308,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Recent */}
             {history.length > 0 && (
               <div className="mt-8">
                 <h3 className="font-bold text-slate-700 mb-4 ml-1">Recent</h3>
@@ -380,7 +377,7 @@ export default function Home() {
                         type="button"
                         onClick={() => {
                           setDownloadOpen(false);
-                          downloadQR(opt.ext, (text || "").trim());
+                          downloadQR(opt.ext, text.trim() || lastGeneratedData); // ✅ FIX
                         }}
                         className="w-full text-left px-6 py-4 font-bold text-slate-700 hover:bg-[#f1eff7] hover:text-[#6d55a2] transition border-b border-slate-50 last:border-none"
                       >
@@ -433,14 +430,13 @@ export default function Home() {
 
             <div className="mt-5">
               <label className="text-xs font-bold text-slate-400 uppercase">
-               Data
+                Data
               </label>
               <p className="mt-1 font-semibold text-slate-700 break-words">
                 {selectedHistoryItem.data}
               </p>
             </div>
 
-            {/* ✅ Proper downloads */}
             <div className="mt-6 grid grid-cols-3 gap-3">
               <button
                 type="button"
