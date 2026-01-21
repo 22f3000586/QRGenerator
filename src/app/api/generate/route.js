@@ -16,11 +16,30 @@ function hexToRgb(hex) {
   return { r, g, b };
 }
 
+// ✅ Fix: if user enters "google.com", scanning opens google search.
+// We convert it to "https://google.com"
+function normalizeQrData(input) {
+  const value = (input || "").trim();
+
+  // already has scheme
+  if (/^https?:\/\//i.test(value)) return value;
+
+  // looks like a domain => force https
+  if (/^[a-z0-9.-]+\.[a-z]{2,}([\/?#].*)?$/i.test(value)) {
+    return `https://${value}`;
+  }
+
+  // keep text as-is
+  return value;
+}
+
 export async function POST(req) {
   try {
     const formData = await req.formData();
 
-    const data = (formData.get("data") || "").trim();
+    const rawData = (formData.get("data") || "").trim();
+    const data = normalizeQrData(rawData);
+
     const device_id = (formData.get("device_id") || "").trim();
 
     let fgColor = (formData.get("fgColor") || "#000000").trim();
@@ -40,11 +59,13 @@ export async function POST(req) {
     if (!isValidHexColor(fgColor)) fgColor = "#000000";
     if (!isValidHexColor(bgColor)) bgColor = "#ffffff";
 
-    // Generate QR (png)
+    // ✅ IMPORTANT FOR LOGO QR:
+    // errorCorrectionLevel H + bigger width + bigger margin
     let qrBuffer = await QRCode.toBuffer(data, {
       type: "png",
-      width: 300,
-      margin: 2,
+      width: 350,
+      margin: 4,
+      errorCorrectionLevel: "H",
       color: {
         dark: fgColor,
         light: bgColor,
@@ -52,45 +73,44 @@ export async function POST(req) {
     });
 
     // ✅ If logo uploaded, validate it's an image
-if (logoFile && typeof logoFile.arrayBuffer === "function") {
-  const mime = logoFile.type || "";
-  if (!mime.startsWith("image/")) {
-    return Response.json(
-      { error: "Logo must be an image file." },
-      { status: 400 }
-    );
-  }
+    if (logoFile && typeof logoFile.arrayBuffer === "function") {
+      const mime = logoFile.type || "";
+      if (!mime.startsWith("image/")) {
+        return Response.json(
+          { error: "Logo must be an image file." },
+          { status: 400 }
+        );
+      }
 
-  const logoArrayBuffer = await logoFile.arrayBuffer();
-  const logoBuffer = Buffer.from(logoArrayBuffer);
+      const logoArrayBuffer = await logoFile.arrayBuffer();
+      const logoBuffer = Buffer.from(logoArrayBuffer);
 
-  // ✅ smaller logo improves scan success a LOT
-  const resizedLogo = await sharp(logoBuffer)
-    .resize(50, 50, { fit: "contain" })
-    .png()
-    .toBuffer();
+      // ✅ smaller logo improves scan success a LOT
+      const resizedLogo = await sharp(logoBuffer)
+        .resize(50, 50, { fit: "contain" })
+        .png()
+        .toBuffer();
 
-  // ✅ logo background uses QR bg color so it blends
-  const { r, g, b } = hexToRgb(bgColor);
+      const { r, g, b } = hexToRgb(bgColor);
 
-  const logoWithBg = await sharp({
-    create: {
-      width: 70,
-      height: 70,
-      channels: 4,
-      background: { r, g, b, alpha: 1 },
-    },
-  })
-    .composite([{ input: resizedLogo, gravity: "center" }])
-    .png()
-    .toBuffer();
+      const logoWithBg = await sharp({
+        create: {
+          width: 70,
+          height: 70,
+          channels: 4,
+          background: { r, g, b, alpha: 1 },
+        },
+      })
+        .composite([{ input: resizedLogo, gravity: "center" }])
+        .png()
+        .toBuffer();
 
-  qrBuffer = await sharp(qrBuffer)
-    .composite([{ input: logoWithBg, gravity: "center" }])
-    .png()
-    .toBuffer();
-}
-
+      // Overlay logo at center
+      qrBuffer = await sharp(qrBuffer)
+        .composite([{ input: logoWithBg, gravity: "center" }])
+        .png()
+        .toBuffer();
+    }
 
     const bucket = "qr-images";
     const fileName = `qr_${Date.now()}_${device_id}.png`;
@@ -153,7 +173,6 @@ if (logoFile && typeof logoFile.arrayBuffer === "function") {
       success: true,
       image_url,
       data,
-
       bucket,
       file_name: fileName,
     });
